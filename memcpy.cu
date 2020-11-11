@@ -1,6 +1,7 @@
 #include <cuda.h>
 #include <cstdint>
 #include <iostream>
+#include "memcpy_tuned.h"
 #define cuda_err_chk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=false)
 {
@@ -23,24 +24,28 @@ __forceinline__ __device__ uint64_t time()
     asm volatile ("mov.u64  %0,%globaltimer;" : "=r"(ret));
     return ret;
 }
+
+
+
+
 /*warp memcpy, assumes alignment at type T and num is a count in type T*/
 template <typename T>
 __device__
-void warp_memcpy(T* __restrict__ dest, const T* __restrict__ src, size_t num) {
-        uint32_t mask = __activemask();
-        uint32_t active_cnt = __popc(mask);
-        uint32_t lane = threadIdx.x & 0x1F;//lane_id();
-        uint32_t prior_mask = mask >> (32 - lane);
-        uint32_t prior_count = __popc(prior_mask);
-        //uint64_t begin = time();
-        #pragma unroll 8
-        for(size_t i = prior_count; i < num; i+=active_cnt) {
-                dest[i] = src[i];
-                //printf("tid: %llu\ti: %llu\n", (unsigned long long) threadIdx.x, (unsigned long long) i);
-        }
-        //uint64_t end = time();
-        //return (end-begin);
-}
+void warp_memcpy(T* __restrict__ dest, const T* __restrict__ src, size_t num);
+ // {
+//         uint32_t mask = __activemask();
+//         uint32_t active_cnt = __popc(mask);
+//         uint32_t lane = threadIdx.x & 0x1F;//lane_id();
+//         uint32_t prior_mask = mask >> (32 - lane);
+//         uint32_t prior_count = __popc(prior_mask);
+//         _warp_memcpy<T, 8, 32>(dest, src, prior_count, num);
+//         //uint64_t begin = time();
+        
+//         //uint64_t end = time();
+//         //return (end-begin);
+// }
+
+
 template <typename T>
 __global__
 void memcpy(T* dest, const T* src, size_t num) {
