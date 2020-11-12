@@ -51,9 +51,9 @@ void warp_memcpy(T* __restrict__ dest, const T* __restrict__ src, size_t num) {
 
 #defining T_sz_active_cnt_unroll_factor_tuples. For now constantly set unroll factor as 8
 T_sz_active_cnt_unroll_factor_tuples = set()
-for T_sz in [4,8]:
+for T_sz in [4, 8, 32]:
     for active_cnt in range(1,33):
-        T_sz_active_cnt_unroll_factor_tuples.add((T_sz,active_cnt,8))
+        T_sz_active_cnt_unroll_factor_tuples.add((T_sz,active_cnt,""))#fully unrolled
 
 
 def generate_switch_table(T_sz_active_cnt_unroll_factor_tuples):
