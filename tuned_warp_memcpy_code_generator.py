@@ -67,10 +67,10 @@ def generate_switch_table(T_sz_active_cnt_unroll_factor_tuples):
         for active_cnt in active_cnts:
             result_str+="case {active_cnt}: {{".format(active_cnt=active_cnt)
             result_str+=WARP_MEMCPY_CALLING_FORMAT_STRING.format(T_sz=T_sz, active_cnt=active_cnt)
-            result_str+="\n}\n"
+            result_str+="\nreturn;\n}\n"
         result_str+="default:assert(0);} // end of active_cnt switch block \n"  #end of active_cnt switch block
         result_str+="} // end of T_sz case block\n" # end of T_sz case block
-    result_str += "default: _warp_memcpy<T> ( dest, src, prior_count, num, active_cnt); //general fall back scheme\n" #general fall back scheme
+    result_str += "default: _warp_memcpy<T> ( dest, src, prior_count, num, active_cnt);return; //general fall back scheme\n" #general fall back scheme
     result_str+="} //end of switch T_sz \n" #end of switch T_sz
     return result_str
 if __name__ == "__main__":
