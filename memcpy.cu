@@ -51,6 +51,17 @@ __global__
 void memcpy(T* dest, const T* src, size_t num) {
     warp_memcpy(dest, src, num);
 }
+
+__global__
+void verify(uint8_t* dest, uint8_t* src, size_t num, int* error_count) {
+    size_t n_threads = blockDim.x*gridDim.x;
+    for (size_t idx=threadIdx.x+blockDim.x*blockIdx.x; idx<num;idx+=n_threads){
+        if(dest[idx]!=src[idx]){
+            atomicAdd(error_count,1);
+        }
+        
+    }
+}
 enum type {
 uint8,
 uint16,
@@ -75,43 +86,53 @@ int main(int argc, char* argv[]) {
     void* d_src_ptr;
     void* d_dest_ptr;
     void* d_dest_aligned_ptr;
+    int* d_error_count;
+    int error_count;
     const unsigned long long int size = (1ULL << type) * (count+1);
     cuda_err_chk(cudaHostAlloc(&h_src_ptr, size, cudaHostAllocMapped));
     cuda_err_chk(cudaHostGetDevicePointer(&d_src_ptr, h_src_ptr, 0));
     d_src_ptr = (void*)(((uint64_t)d_src_ptr) + ((1ULL << type)));
     cuda_err_chk(cudaMalloc(&d_dest_ptr, size));
+    cuda_err_chk(cudaMalloc(&d_error_count, sizeof(int)));
+    cuda_err_chk(cudaMemset(d_error_count,0, sizeof(int)));
     d_dest_aligned_ptr = (void*)(((uint64_t)d_dest_ptr) + ((1ULL << type)));
     //uint64_t reg_time;
     switch (type) {
         case uint8:
             cudaEventRecord(start);
             memcpy<uint8_t><<<1, 32>>>((uint8_t*) d_dest_aligned_ptr, (const uint8_t*) d_src_ptr, count);
-             cudaEventRecord(stop);
+            cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*1, d_error_count);
             break;
         case uint16:
             cudaEventRecord(start);
             memcpy<uint16_t><<<1, 32>>>((uint16_t*) d_dest_aligned_ptr, (const uint16_t*) d_src_ptr, count);
             cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*2, d_error_count);
             break;
         case uint32:
             cudaEventRecord(start);
             memcpy<uint32_t><<<1, 32>>>((uint32_t*) d_dest_aligned_ptr, (const uint32_t*) d_src_ptr, count);
             cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*4, d_error_count);
             break;
         case uint64:
             cudaEventRecord(start);
             memcpy<uint64_t><<<1, 32>>>((uint64_t*) d_dest_aligned_ptr, (const uint64_t*) d_src_ptr, count);
             cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*8, d_error_count);
             break;
         case uint128:
             cudaEventRecord(start);
             memcpy<ulonglong2><<<1, 32>>>((ulonglong2*) d_dest_aligned_ptr, (const ulonglong2*) d_src_ptr, count);
             cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*16, d_error_count);
             break;
         case uint256:
             cudaEventRecord(start);
             memcpy<ulonglong4><<<1, 32>>>((ulonglong4*) d_dest_aligned_ptr, (const ulonglong4*) d_src_ptr, count);
             cudaEventRecord(stop);
+            verify<<<1, 32>>>((uint8_t*) d_dest_aligned_ptr,  (uint8_t*)d_src_ptr, count*32, d_error_count);
             break;
         default:
             cudaEventRecord(start);
@@ -119,11 +140,15 @@ int main(int argc, char* argv[]) {
             break;
     }
     cuda_err_chk(cudaEventSynchronize(stop));
+    cuda_err_chk(cudaMemcpy(&error_count,d_error_count,sizeof(int),cudaMemcpyDeviceToHost));
     cuda_err_chk(cudaFreeHost(h_src_ptr));
     cuda_err_chk(cudaFree(d_dest_ptr));
+    cuda_err_chk(cudaFree(d_error_count));
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     std::cout << "Bytes: " << (size - ((1ULL << type) )) << "\tTime: " << milliseconds << " ms\n";
     std::cout << "Bandwidth: " << (size - ((1ULL << type)))/milliseconds * 1000ULL/(1024ULL*1024ULL*1024ULL) << " GBytes/sec\n";
+    std::cout <<"Error count: "<<error_count<<std::endl;
+    
     //std::cout << "Reg Time "<< reg_time<<"\n";
 }
