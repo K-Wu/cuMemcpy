@@ -8,8 +8,8 @@ WARP_MEMCPY_CALLING_FORMAT_STRING ="""
 DECLARE_WARP_MEMCPY_FORMAT_STRING = """_warp_memcpy_{T_sz}_{active_cnt}"""
 
 DEFINE_WARP_MEMCPY_FORMAT_STRING = """
-__device__ 
-void __forceinline__  _warp_memcpy_{T_sz}_{active_cnt} ({T_sz_generic_type}* __restrict__ dest, const {T_sz_generic_type}* __restrict__ src, uint32_t prior_count, size_t num) {{
+__device__  __forceinline__
+void  _warp_memcpy_{T_sz}_{active_cnt} ({T_sz_generic_type}* __restrict__ dest, const {T_sz_generic_type}* __restrict__ src, uint32_t prior_count, size_t num) {{
     #pragma unroll {unroll_factor} 
     for(size_t i = prior_count; i < num; i+={active_cnt}) {{
             dest[i] = src[i]; 
@@ -23,7 +23,7 @@ typedef void (*warp_memcpy_ptr_{T_sz}_t)({T_sz_generic_type}* __restrict__, cons
 """
 
 DEFINE_JUMPTABLE_FORMAT_STRING = """
-const static __device__ warp_memcpy_ptr_{T_sz}_t _warp_memcpy_{T_sz}_table[32]={{
+static __constant__ __device__ warp_memcpy_ptr_{T_sz}_t _warp_memcpy_{T_sz}_table[32]={{
 {jump_table}
 }};
 """
@@ -33,20 +33,20 @@ HEADING_CONTENT="""
 #include <cuda.h>
 #include <assert.h>
 template <typename T> 
-__device__ 
-void __forceinline__  _warp_memcpy_general(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num, int active_cnt);
+__device__  __forceinline__
+void  _warp_memcpy_general(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num, int active_cnt);
 
 template <typename T, int T_sz, int active_cnt> 
-__device__ 
-void __forceinline__  _warp_memcpy(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num){
+__device__  __forceinline__
+void  _warp_memcpy(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num){
     for(size_t i = prior_count; i < num; i+=active_cnt) { 
             dest[i] = src[i]; 
     } 
 }
 
 template <typename T> 
-__device__ 
-void __forceinline__  _warp_memcpy_general(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num, int active_cnt) { //general fall back scheme 
+__device__  __forceinline__
+void  _warp_memcpy_general(T* __restrict__ dest, const T* __restrict__ src, uint32_t prior_count, size_t num, int active_cnt) { //general fall back scheme 
     for(size_t i = prior_count; i < num; i+=active_cnt) { 
             dest[i] = src[i]; 
     } 
